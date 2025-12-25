@@ -48,6 +48,44 @@ app.get("/trips", async (req, res) => {
   }
 });
 
+app.post("/trips", async (req, res) => {
+  try {
+    const { runner_name, shop_name, departure_time } = req.body;
+
+    // 1️⃣ Basic validation (trust nothing from client)
+    if (!runner_name || !shop_name || !departure_time) {
+      return res.status(400).json({
+        error: "runner_name, shop_name, and departure_time are required",
+      });
+    }
+
+    // 2️⃣ Insert query (parameterized → SQL injection safe)
+    const query = `
+      INSERT INTO trips (runner_name, shop_name, departure_time, status)
+      VALUES ($1, $2, $3, 'open')
+      RETURNING
+        id,
+        runner_name,
+        shop_name,
+        departure_time,
+        status,
+        created_at
+    `;
+
+    const values = [runner_name, shop_name, departure_time];
+
+    const result = await pool.query(query, values);
+
+    // 3️⃣ Return the created trip
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Failed to create trip:", err.message);
+
+    res.status(500).json({
+      error: "Failed to create trip",
+    });
+  }
+});
 
 
 const PORT = process.env.PORT || 5000;
