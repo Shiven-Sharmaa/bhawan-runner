@@ -22,6 +22,16 @@ app.get("/health", async (req, res) => {
 
 app.get("/trips", async (req, res) => {
   try {
+    const { bhawan } = req.query;
+
+    // 1️⃣ Validate query param
+    if (!bhawan) {
+      return res.status(400).json({
+        error: "bhawan query parameter is required",
+      });
+    }
+
+    // 2️⃣ Query filtered by bhawan + open trips only
     const query = `
       SELECT
         id,
@@ -29,15 +39,17 @@ app.get("/trips", async (req, res) => {
         shop_name,
         departure_time,
         status,
-        created_at
+        created_at,
+        bhawan
       FROM trips
       WHERE status = 'open'
+        AND bhawan = $1
       ORDER BY departure_time ASC
     `;
 
-    const result = await pool.query(query);
+    const result = await pool.query(query, [bhawan]);
 
-    // Always return an array (empty is valid)
+    // 3️⃣ Always return an array
     res.status(200).json(result.rows);
   } catch (err) {
     console.error("Failed to fetch trips:", err.message);
@@ -48,12 +60,13 @@ app.get("/trips", async (req, res) => {
   }
 });
 
+
 app.post("/trips", async (req, res) => {
   try {
-    const { runner_name, shop_name, departure_time } = req.body;
+    const { runner_name, shop_name, departure_time,bhawan } = req.body;
 
     // 1️⃣ Basic validation (trust nothing from client)
-    if (!runner_name || !shop_name || !departure_time) {
+    if (!runner_name || !shop_name || !departure_time || !bhawan) {
       return res.status(400).json({
         error: "runner_name, shop_name, and departure_time are required",
       });
@@ -61,18 +74,19 @@ app.post("/trips", async (req, res) => {
 
     // 2️⃣ Insert query (parameterized → SQL injection safe)
     const query = `
-      INSERT INTO trips (runner_name, shop_name, departure_time, status)
-      VALUES ($1, $2, $3, 'open')
+      INSERT INTO trips (runner_name, shop_name, departure_time,bhawan,status)
+      VALUES ($1, $2, $3,$4, 'open')
       RETURNING
         id,
         runner_name,
         shop_name,
         departure_time,
         status,
-        created_at
+        created_at,
+        bhawan
     `;
 
-    const values = [runner_name, shop_name, departure_time];
+    const values = [runner_name, shop_name, departure_time,bhawan];
 
     const result = await pool.query(query, values);
 
