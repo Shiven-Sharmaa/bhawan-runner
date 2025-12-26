@@ -87,6 +87,50 @@ app.post("/trips", async (req, res) => {
   }
 });
 
+app.patch("/trips/:id/close", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1️⃣ Validate path param
+    if (!id || isNaN(id)) {
+      return res.status(400).json({
+        error: "Invalid trip id",
+      });
+    }
+
+    // 2️⃣ Close only if currently open
+    const query = `
+      UPDATE trips
+      SET status = 'closed'
+      WHERE id = $1 AND status = 'open'
+      RETURNING
+        id,
+        runner_name,
+        shop_name,
+        departure_time,
+        status,
+        created_at
+    `;
+
+    const result = await pool.query(query, [id]);
+
+    // 3️⃣ No rows updated → either not found or already closed
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        error: "Trip not found or already closed",
+      });
+    }
+
+    // 4️⃣ Return updated trip
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error("Failed to close trip:", err.message);
+
+    res.status(500).json({
+      error: "Failed to close trip",
+    });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
