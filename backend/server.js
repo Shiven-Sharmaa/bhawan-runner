@@ -1,11 +1,20 @@
 require("dotenv").config({ path: "../.env" });
 
+const cors = require("cors");
+
 const express = require("express");
 const pool = require("./db/pool"); // now env vars exist
 
 const app = express();
 
+app.use(cors({
+  origin: "http://localhost:3000",
+  methods: ["GET", "POST", "PATCH"],
+}));
+
+
 app.use(express.json());
+
 
 app.get("/health", async (req, res) => {
   try {
