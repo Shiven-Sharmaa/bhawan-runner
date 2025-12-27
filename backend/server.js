@@ -22,7 +22,38 @@ app.get("/health", async (req, res) => {
 
 app.get("/trips", async (req, res) => {
   try {
-    const { bhawan } = req.query;
+
+    // 2️⃣ Query filtered by bhawan + open trips only
+    const query = `
+      SELECT
+        id,
+        runner_name,
+        shop_name,
+        departure_time,
+        status,
+        created_at,
+        bhawan
+      FROM trips
+      WHERE status = 'open'
+      ORDER BY departure_time ASC
+    `;
+
+    const result = await pool.query(query);
+
+    // 3️⃣ Always return an array
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("Failed to fetch trips:", err.message);
+
+    res.status(500).json({
+      error: "Failed to fetch trips",
+    });
+  }
+});
+
+app.get("/trips/:bhawan", async (req, res) => {
+  try {
+    const { bhawan } = req.params;
 
     // 1️⃣ Validate query param
     if (!bhawan) {
