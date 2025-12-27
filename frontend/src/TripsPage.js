@@ -80,7 +80,33 @@ function TripsPage() {
       .finally(() => {
         setSubmitting(false);
       });
-  };
+    };
+    
+    const handleCloseTrip = (tripId) => {
+    const confirmClose = window.confirm(
+        "Are you sure you want to close this trip?"
+    );
+
+    if (!confirmClose) return;
+
+    fetch(`http://localhost:5000/trips/${tripId}/close`, {
+        method: "PATCH",
+    })
+        .then((res) => {
+        if (!res.ok) {
+            throw new Error("Failed to close trip");
+        }
+        return res.json();
+        })
+        .then(() => {
+        // Refresh trips list after closing
+        fetchTrips();
+        })
+        .catch((err) => {
+        alert(err.message);
+        });
+    };
+
 
   return (
     <div>
@@ -129,15 +155,19 @@ function TripsPage() {
       )}
 
       <ul>
-        {trips.map((trip) => (
-          <li key={trip.id}>
-            <strong>{trip.runner_name}</strong> → {trip.shop_name}
-            <br />
-            Departure:{" "}
-            {new Date(trip.departure_time).toLocaleString()}
-          </li>
-        ))}
-      </ul>
+    {trips.map((trip) => (
+    <li key={trip.id}>
+    <strong>{trip.runner_name}</strong> → {trip.shop_name}
+    <br />
+    Departure: {new Date(trip.departure_time).toLocaleString()}
+    <br />
+    <button onClick={() => handleCloseTrip(trip.id)}>
+        Close Trip
+    </button>
+    </li>
+    ))}
+    </ul>
+
     </div>
   );
 }
