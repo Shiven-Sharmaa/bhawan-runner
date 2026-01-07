@@ -186,6 +186,53 @@ app.patch("/trips/:id/close", async (req, res) => {
   }
 });
 
+const bcrypt = require("bcrypt");
+
+app.post("/auth/register", async (req, res) => {
+  try {
+    const { name, email, password, phone } = req.body;
+
+    // 1️⃣ Basic validation
+    if (!name || !email || !password || !phone) {
+      return res.status(400).json({
+        error: "name, email, password, and phone are required",
+      });
+    }
+
+    // 2️⃣ Hash password
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // 3️⃣ Insert user
+    const query = `
+      INSERT INTO users (name, email, password_hash, phone)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, name, email, phone
+    `;
+
+    const values = [name, email, passwordHash, phone];
+
+    const result = await pool.query(query, values);
+
+    // 4️⃣ Return created user (no password)
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    // Unique email violation
+    if (err.code === "23505") {
+      return res.status(409).json({
+        error: "Email already registered",
+      });
+    }
+
+    console.error("Registration failed:", err.message);
+
+    res.status(500).json({
+      error: "Registration failed",
+    });
+  }
+});
+
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
