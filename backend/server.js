@@ -84,7 +84,8 @@ app.get("/trips/:bhawan", async (req, res) => {
         departure_time,
         status,
         created_at,
-        bhawan
+        bhawan,
+        creator_id
       FROM trips
       WHERE status = 'open'
         AND bhawan = $1

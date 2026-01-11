@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useAuth } from "./AuthContext";
+import { apiFetch } from "./api";
 
 function TripsPage() {
   const { bhawan } = useParams();
+  const { token, user } = useAuth();
+
+
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -12,32 +17,35 @@ function TripsPage() {
   const [departureTime, setDepartureTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchTrips = () => {
-    setLoading(true);
-    setError(null);
+  // ---------- Fetch trips (public) ----------
+  const fetchTrips = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    fetch(`http://localhost:5000/trips/${bhawan}`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Failed to fetch trips");
-        }
-        return res.json();
-      })
-      .then((data) => {
-        setTrips(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+      const res = await apiFetch(
+        `http://localhost:5000/trips/${bhawan}`
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch trips");
+      }
+
+      const data = await res.json();
+      setTrips(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchTrips();
   }, [bhawan]);
 
-  const handleSubmit = (e) => {
+  // ---------- Create trip (authenticated) ----------
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!runnerName || !shopName || !departureTime) {
@@ -45,69 +53,66 @@ function TripsPage() {
       return;
     }
 
-    setSubmitting(true);
+    try {
+      setSubmitting(true);
 
-    fetch("http://localhost:5000/trips", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        runner_name: runnerName,
-        shop_name: shopName,
-        departure_time: departureTime,
-        bhawan,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Failed to create trip");
-        }
-        return res.json();
-      })
-      .then(() => {
-        // Reset form
-        setRunnerName("");
-        setShopName("");
-        setDepartureTime("");
+      const res = await apiFetch(
+        "http://localhost:5000/trips",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            runner_name: runnerName,
+            shop_name: shopName,
+            departure_time: departureTime,
+            bhawan,
+          }),
+        },
+        token
+      );
 
-        // Refresh trips list
-        fetchTrips();
-      })
-      .catch((err) => {
-        alert(err.message);
-      })
-      .finally(() => {
-        setSubmitting(false);
-      });
-    };
-    
-    const handleCloseTrip = (tripId) => {
+      if (!res.ok) {
+        throw new Error("Failed to create trip");
+      }
+
+      // Reset form
+      setRunnerName("");
+      setShopName("");
+      setDepartureTime("");
+
+      // Refresh list
+      fetchTrips();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ---------- Close trip (authenticated) ----------
+  const handleCloseTrip = async (tripId) => {
     const confirmClose = window.confirm(
-        "Are you sure you want to close this trip?"
+      "Are you sure you want to close this trip?"
     );
-
     if (!confirmClose) return;
 
-    fetch(`http://localhost:5000/trips/${tripId}/close`, {
-        method: "PATCH",
-    })
-        .then((res) => {
-        if (!res.ok) {
-            throw new Error("Failed to close trip");
-        }
-        return res.json();
-        })
-        .then(() => {
-        // Refresh trips list after closing
-        fetchTrips();
-        })
-        .catch((err) => {
-        alert(err.message);
-        });
-    };
+    try {
+      const res = await apiFetch(
+        `http://localhost:5000/trips/${tripId}/close`,
+        { method: "PATCH" },
+        token
+      );
 
+      if (!res.ok) {
+        throw new Error("Failed to close trip");
+      }
 
+      fetchTrips();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // ---------- Render ----------
   return (
     <div>
       <h2>Open Trips — Bhawan {bhawan}</h2>
@@ -155,19 +160,21 @@ function TripsPage() {
       )}
 
       <ul>
-    {trips.map((trip) => (
-    <li key={trip.id}>
-    <strong>{trip.runner_name}</strong> → {trip.shop_name}
-    <br />
-    Departure: {new Date(trip.departure_time).toLocaleString()}
-    <br />
-    <button onClick={() => handleCloseTrip(trip.id)}>
-        Close Trip
-    </button>
-    </li>
-    ))}
-    </ul>
-
+        {trips.map((trip) => (
+          <li key={trip.id}>
+            <strong>{trip.runner_name}</strong> → {trip.shop_name}
+            <br />
+            Departure:{" "}
+            {new Date(trip.departure_time).toLocaleString()}
+            <br />
+            {user && trip.creator_id === user.id && (
+              <button onClick={() => handleCloseTrip(trip.id)}>
+                Close Trip
+              </button>
+            )}
+          </li> 
+        ))}
+      </ul>
     </div>
   );
 }
